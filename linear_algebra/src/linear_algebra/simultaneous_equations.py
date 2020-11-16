@@ -29,20 +29,17 @@ def swap_row(row_0:int, row_1:int, a:torch.Tensor) -> torch.Tensor:
     pivot = pivot.to(a.dtype)
     return pivot.matmul(a)
 
-def LU_decomposition(
-    a:torch.Tensor, idx:torch.Tensor=None
-    ) -> Tuple[torch.Tensor]:
+def LU_decomposition(a:torch.Tensor) -> Tuple[torch.Tensor]:
+
+    idx = torch.arange(0, a.shape[0], dtype=torch.int64).unsqueeze(0)
+    idx = idx.t()
 
     m_0 = torch.zeros(a[0].shape)
     m_0[..., 0] = 1
     if(len(a) <= 1):
         return a, m_0.unsqueeze(0), idx
 
-    if idx is None:
-        idx = torch.arange(0, a.shape[0], dtype=torch.int64).unsqueeze(0)
-        idx = idx.t()
-
-    _, max_idx = torch.max(a.t(), 1)
+    _, max_idx = torch.max(torch.abs(a.t()), 1)
     max_idx = max_idx[0]
     a = swap_row(0, max_idx, a)
     idx = swap_row(0, max_idx, idx)
@@ -54,14 +51,16 @@ def LU_decomposition(
     a_0 = a_0.unsqueeze(0)
     a_1 -= m_1.matmul(a_0)
 
-    a_2, m_2, idx_2 = LU_decomposition(a_1[:, 1:], idx=idx[1:])
+    a_2, m_2, idx_2 = LU_decomposition(a_1[:, 1:])
+    m_1 = torch.gather(m_1, 0, idx_2)
+    _idx = torch.gather(idx[1:], 0, idx_2)
+    idx = torch.cat((idx[0].unsqueeze(1), _idx), 0)
     a_1 = torch.cat((a_1[:, 0].unsqueeze(1), a_2), 1)
     m_1 = torch.cat((m_1, m_2), 1)
 
     a = torch.cat((a_0, a_1), 0)
     m_0 = m_0.unsqueeze(0)
     m = torch.cat((m_0, m_1), 0)
-    idx = torch.cat((idx[0:1], idx_2), 0)
 
     return a, m, idx
 
@@ -72,8 +71,8 @@ def forward_substitution(
     indices = list(range(len(b)))
     N = len(indices)
     indices = indices if not reverse else reversed(indices)
-    k_range = (lambda t: range(t)) if reverse \
-        else (lambda t: range(t, N))
+    k_range = (lambda t: range(t+1, N)) if not reverse \
+        else (lambda t: range(t))
     for i in indices:
         x[i] = b[i]/a[i, i]
         for k in k_range(i):
@@ -85,19 +84,21 @@ def gaussian_elimination(
     a:torch.Tensor, b:torch.Tensor
     ) -> torch.Tensor:
     a = torch.cat((a,b), 1)
-    a, m, _ = LU_decomposition(a)
+    a, m, idx = LU_decomposition(a)
     a = a.t()
     b = a[-1].t()
     a = a[:-1].t()
 
     x = forward_substitution(a, b, True)
-    return x.unsqueeze(0).t()
+    x = x.unsqueeze(0).t()
+    return torch.gather(x, -1, torch.argsort(idx))
 
 def LU_solver(a:torch.Tensor, b:torch.Tensor) -> torch.Tensor:
-    a, m, _ = LU_decomposition(a)
+    a, m, idx = LU_decomposition(a)
+    b = torch.gather(b, 0, idx)
     y = forward_substitution(m, b)
     x = forward_substitution(a, y, True)
-    return x
+    return torch.gather(x, -1, torch.argsort(idx))
 
 if __name__ == "__main__":
     a, x, b = generate_probrem(3, 5)

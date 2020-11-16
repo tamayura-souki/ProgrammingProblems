@@ -1,19 +1,24 @@
+import math
+
 import torch
 import pytest
+
 from linear_algebra.simultaneous_equations import *
 
 def test_gaussian_elimination():
-    a, x, b = generate_probrem(3, 5)
-    x_ = gaussian_elimination(a, b)
-    epsilon = torch.norm(x-x_)
-    assert epsilon == 0.0
+    for i in range(100):
+        a, x, b = generate_probrem(10, 10)
+        x_ = gaussian_elimination(a, b)
+        error = torch.norm(a.matmul(x_)-b)
+        assert error == pytest.approx(0.0, abs=1e-3)
 
 def test_LU_solver():
-    a, x, b = generate_probrem(3, 5)
-    x_ = LU_solver(a, b)
-    epsilon = torch.norm(x-x_)
-    assert epsilon == 0.0
+    for i in range(100):
+        a, x, b = generate_probrem(10, 10)
+        x_ = LU_solver(a, b)
+        error = torch.norm(a.matmul(x_)-b)
+        assert error == pytest.approx(0.0, abs=1e-3)
 
 
 if __name__ == "__main__":
-    test_gaussian_elimination()
+    test_LU_solver()
