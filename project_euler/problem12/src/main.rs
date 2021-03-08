@@ -20,19 +20,16 @@ fn divisor_num(n: u64) -> u64 {
         return 1
     }
     let mut d_count:u64 = 0;
-    let mut divisor_list:Vec<u64> = vec![n];
+    let mut lim:u64 = n;
     for i in 1..n {
-        match divisor_list.last() {
-            Some(&y)=> if y <= i {
-                break;
-            },
-            None=>(),
+        if lim <= i {
+            break;
         }
         if n % i == 0 {
-            let x = n/i;
-            divisor_list.push(x);
-            if x == i {
+            lim = n/i;
+            if lim == i {
                 d_count += 1;
+                break;
             }else {
                 d_count += 2;
             }
